@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>1.2 Procesos y Multiprogramación — Taller de Sistemas Operativos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ============================================================
+   SISTEMA DE PRESENTACIONES — TOKENS
+   Ing. en Sistemas Computacionales · TecNM
+   ============================================================ */
+
+:root{
+  /* --- Base neutra: papel técnico frío, no crema --- */
+  --ink:        #12171F;   /* texto principal */
+  --ink-2:      #3D4855;   /* texto secundario */
+  --ink-3:      #6B7785;   /* metadatos, captions */
+  --paper:      #F2F5F7;   /* fondo de lámina */
+  --paper-2:    #FFFFFF;   /* tarjetas */
+  --rule:       #D3DAE1;   /* filetes */
+  --rule-soft:  #E4E9ED;
+
+  /* --- Superficie oscura (código, diagramas invertidos) --- */
+  --slate:      #161C26;
+  --slate-2:    #212A37;
+  --slate-rule: #33404F;
+  --slate-ink:  #DCE3EA;
+
+  /* --- Acento por materia (se sobrescribe con .m-tso / .m-seg / .m-min) --- */
+  --accent:     #1F5F8B;
+  --accent-2:   #2E82BB;
+  --accent-ink: #0E3E5E;
+  --accent-wash:#E3EDF4;
+
+  /* --- Señales semánticas --- */
+  --warn:       #A8620B;
+  --warn-wash:  #FBF0DE;
+  --ok:         #1D6E4E;
+  --ok-wash:    #E1F0E8;
+  --stop:       #A32E22;
+
+  /* --- Tipografía: display serif editorial + sans técnica + mono utilitaria.
+         Todas con stack de sistema: el deck funciona sin internet. --- */
+  --font-display: "Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --font-body:    Inter,"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --font-mono:    ui-monospace,"Cascadia Mono","JetBrains Mono","SF Mono",Consolas,"Liberation Mono",monospace;
+
+  /* --- Escala tipográfica (lámina base 1280×720) --- */
+  --t-hero:   68px;
+  --t-h1:     46px;
+  --t-h2:     33px;
+  --t-h3:     24px;
+  --t-body:   21px;
+  --t-small:  17px;
+  --t-micro:  13px;
+  --t-code:   17px;
+
+  /* --- Ritmo --- */
+  --s1: 6px;  --s2: 12px; --s3: 20px; --s4: 32px; --s5: 48px; --s6: 72px;
+  --rail: 74px;          /* ancho del espinazo lateral */
+  --pad-x: 84px;
+  --pad-y: 62px;
+  --radius: 3px;         /* casi recto: registro de documentación técnica */
+}
+
+/* --- Acentos por materia --- */
+.m-tso{ --accent:#1F5F8B; --accent-2:#2E82BB; --accent-ink:#0E3E5E; --accent-wash:#E3EDF4; }
+.m-seg{ --accent:#9B3227; --accent-2:#C4523F; --accent-ink:#6B1F17; --accent-wash:#F6E7E4; }
+.m-min{ --accent:#12655C; --accent-2:#1B8C7F; --accent-ink:#0A423C; --accent-wash:#DFEEEB; }
+
+/* --- Modo oscuro (tecla D) --- */
+.dark{
+  --ink:#E7EDF3; --ink-2:#B3BECB; --ink-3:#7E8B99;
+  --paper:#0F141B; --paper-2:#18202A;
+  --rule:#2C3947; --rule-soft:#232D39;
+  --slate:#080B10; --slate-2:#111925; --slate-rule:#2A3644;
+  --accent-wash:#16283A;
+}
+.dark.m-seg{ --accent:#D9705C; --accent-2:#E58A78; --accent-ink:#F0AFA2; --accent-wash:#33201C; }
+.dark.m-min{ --accent:#31A395; --accent-2:#4CBDAF; --accent-ink:#7FD6CA; --accent-wash:#12302C; }
+.dark.m-tso{ --accent:#5AA3D6; --accent-2:#7DBBE4; --accent-ink:#A8D2EE; --accent-wash:#15283A; }
+
+</style>
+<style>
+/* ============================================================
+   SISTEMA DE PRESENTACIONES — LAYOUTS DE LÁMINA
+   ============================================================ */
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; height:100%; background:#0B0D10; }
+body{
+  font-family:var(--font-body);
+  color:var(--ink);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- Escenario ---------- */
+#stage{
+  position:relative;
+  width:100vw; height:100vh;
+  display:flex; align-items:center; justify-content:center;
+  background:#0B0D10;
+}
+.viewport{
+  position:relative;
+  width:1280px; height:720px;
+  max-width:100vw; max-height:100vh;
+  transform-origin:center center;
+  overflow:hidden;
+  box-shadow:0 40px 120px rgba(0,0,0,.55);
+}
+
+/* ---------- Lámina base ---------- */
+.slide{
+  position:absolute; inset:0;
+  display:none;
+  background:var(--paper);
+  color:var(--ink);
+}
+.slide.active{ display:block; }
+.slide-inner{
+  position:relative; z-index:2;
+  height:100%;
+  padding:var(--pad-y) var(--pad-x) var(--pad-y) calc(var(--pad-x) + var(--rail));
+  display:flex; flex-direction:column;
+}
+
+/* ---------- Espinazo lateral (elemento firma) ----------
+   Franja vertical con el código oficial del subtema (p.ej. "1.3")
+   tomado del temario TecNM: la numeración real de la jerarquía
+   del programa, no un adorno. Corre en todas las láminas. */
+.spine{
+  position:absolute; left:0; top:0; bottom:0; width:var(--rail);
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:space-between;
+  padding:var(--pad-y) 0;
+  border-right:1px solid var(--rule);
+  z-index:3;
+}
+.spine__code{
+  writing-mode:vertical-rl; transform:rotate(180deg);
+  font-family:var(--font-mono); font-size:var(--t-small);
+  letter-spacing:.14em; color:var(--accent); font-weight:600;
+}
+.spine__mat{
+  writing-mode:vertical-rl; transform:rotate(180deg);
+  font-family:var(--font-mono); font-size:11px;
+  letter-spacing:.18em; color:var(--ink-3); text-transform:uppercase;
+}
+.spine__dot{ width:7px; height:7px; border-radius:50%; background:var(--accent); }
+
+/* ---------- Cabecera de contenido ---------- */
+.eyebrow{
+  font-family:var(--font-mono); font-size:var(--t-micro);
+  letter-spacing:.16em; text-transform:uppercase;
+  color:var(--accent); font-weight:600; margin:0 0 var(--s2);
+  display:flex; align-items:center; gap:var(--s2);
+}
+.eyebrow::before{ content:""; width:22px; height:2px; background:var(--accent); display:inline-block; }
+
+h1.slide-title{
+  font-family:var(--font-display); font-weight:600;
+  font-size:var(--t-h1); line-height:1.05; margin:0 0 var(--s3);
+  color:var(--ink); letter-spacing:-.01em;
+}
+h2.slide-sub{
+  font-family:var(--font-body); font-weight:600;
+  font-size:var(--t-h3); color:var(--accent-ink); margin:0 0 var(--s3);
+}
+.lede{
+  font-family:var(--font-display); font-style:italic;
+  font-size:var(--t-h3); color:var(--ink-2); line-height:1.35;
+  max-width:820px; margin:0 0 var(--s4);
+}
+.body-text{ font-size:var(--t-body); line-height:1.55; color:var(--ink-2); }
+.body-text p{ margin:0 0 var(--s3); }
+.body-text strong{ color:var(--ink); font-weight:650; }
+
+/* ---------- Footer ---------- */
+.slide-foot{
+  position:absolute; left:calc(var(--pad-x) + var(--rail)); right:var(--pad-x); bottom:24px;
+  display:flex; justify-content:space-between; align-items:center;
+  font-family:var(--font-mono); font-size:11px; color:var(--ink-3);
+  letter-spacing:.05em; z-index:3;
+}
+.slide-foot .dots{ display:flex; gap:5px; }
+.slide-foot .dots span{ width:5px; height:5px; border-radius:50%; background:var(--rule); }
+.slide-foot .dots span.on{ background:var(--accent); }
+
+/* ============================================================
+   1. PORTADA
+   ============================================================ */
+.slide--portada .slide-inner{ justify-content:center; padding-left:var(--pad-x); }
+.slide--portada .spine{ display:none; }
+.portada__kicker{
+  font-family:var(--font-mono); font-size:var(--t-small); letter-spacing:.18em;
+  text-transform:uppercase; color:var(--accent-2); margin-bottom:var(--s4);
+}
+.portada__title{
+  font-family:var(--font-display); font-weight:600;
+  font-size:var(--t-hero); line-height:.98; letter-spacing:-.015em;
+  color:var(--ink); max-width:980px; margin:0 0 var(--s4);
+}
+.portada__title em{ color:var(--accent); font-style:normal; }
+.portada__meta{
+  display:flex; gap:var(--s5); margin-top:var(--s4);
+  border-top:1px solid var(--rule); padding-top:var(--s3);
+  max-width:820px;
+}
+.portada__meta div{ font-size:var(--t-small); }
+.portada__meta span{ display:block; font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; color:var(--ink-3); text-transform:uppercase; margin-bottom:4px; }
+.portada__num{
+  position:absolute; right:var(--pad-x); top:var(--pad-y);
+  font-family:var(--font-display); font-size:120px; font-weight:600;
+  color:var(--accent-wash); line-height:1; user-select:none;
+}
+
+/* ============================================================
+   2. AGENDA
+   ============================================================ */
+.agenda__list{ list-style:none; margin:0; padding:0; }
+.agenda__list li{
+  display:grid; grid-template-columns:56px 1fr auto; align-items:baseline;
+  gap:var(--s3); padding:var(--s3) 0; border-bottom:1px solid var(--rule-soft);
+}
+.agenda__list li:first-child{ border-top:1px solid var(--rule-soft); }
+.agenda__num{ font-family:var(--font-mono); color:var(--accent); font-size:var(--t-h3); font-weight:600; }
+.agenda__label{ font-family:var(--font-display); font-size:26px; color:var(--ink); }
+.agenda__tag{ font-family:var(--font-mono); font-size:12px; color:var(--ink-3); }
+.agenda__list li.is-current .agenda__label{ color:var(--accent-ink); }
+.agenda__list li.is-current .agenda__num{ color:var(--accent); }
+.agenda__list li.is-current{ background:var(--accent-wash); margin:0 -20px; padding:var(--s3) 20px; border-radius:var(--radius); border-bottom-color:transparent; }
+
+/* ============================================================
+   3. CONCEPTO (idea grande, centrado)
+   ============================================================ */
+.concepto{ display:flex; flex-direction:column; justify-content:center; height:100%; }
+.concepto__term{ font-family:var(--font-display); font-size:52px; color:var(--ink); margin:0 0 var(--s3); max-width:900px; line-height:1.08; }
+.concepto__term strong{ color:var(--accent); font-weight:600; }
+.concepto__def{ font-size:var(--t-h3); color:var(--ink-2); max-width:760px; line-height:1.45; }
+
+/* ============================================================
+   4. SPLIT (texto / diagrama o imagen)
+   ============================================================ */
+.split{ display:grid; grid-template-columns:1fr 1fr; gap:var(--s5); flex:1; align-items:center; }
+.split.rev{ direction:rtl; }
+.split.rev > *{ direction:ltr; }
+.split__figure{
+  height:100%; display:flex; align-items:center; justify-content:center;
+  background:var(--paper-2); border:1px solid var(--rule); border-radius:var(--radius);
+  padding:var(--s3);
+}
+.split__figure svg{ width:100%; height:auto; }
+.split__figure img{ width:100%; height:auto; object-fit:contain; border-radius:2px; }
+.figcap{ font-family:var(--font-mono); font-size:12px; color:var(--ink-3); margin-top:var(--s2); }
+
+/* ============================================================
+   5. COMPARATIVA (2–3 columnas)
+   ============================================================ */
+.grid-cols{ display:grid; gap:var(--s3); flex:1; align-items:stretch; }
+.grid-cols.c2{ grid-template-columns:1fr 1fr; }
+.grid-cols.c3{ grid-template-columns:1fr 1fr 1fr; }
+.col-card{
+  background:var(--paper-2); border:1px solid var(--rule); border-radius:var(--radius);
+  padding:var(--s3); display:flex; flex-direction:column; gap:var(--s2);
+}
+.col-card__head{ display:flex; align-items:center; gap:var(--s2); border-bottom:1px solid var(--rule-soft); padding-bottom:var(--s2); }
+.col-card__head .dot{ width:10px; height:10px; border-radius:50%; background:var(--accent-2); }
+.col-card__title{ font-weight:650; font-size:19px; color:var(--ink); }
+.col-card ul{ margin:0; padding-left:18px; font-size:16px; color:var(--ink-2); line-height:1.5; }
+.col-card ul li{ margin-bottom:6px; }
+.col-card.is-accent{ border-color:var(--accent); background:var(--accent-wash); }
+
+/* ============================================================
+   6. TABLA
+   ============================================================ */
+table.data-table{ width:100%; border-collapse:collapse; font-size:16px; }
+table.data-table th{
+  text-align:left; font-family:var(--font-mono); font-size:11px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--ink-3); font-weight:600;
+  padding:10px 14px; border-bottom:2px solid var(--ink);
+}
+table.data-table td{ padding:12px 14px; border-bottom:1px solid var(--rule-soft); color:var(--ink-2); }
+table.data-table tr:hover td{ background:var(--accent-wash); }
+table.data-table td strong{ color:var(--ink); }
+
+/* ============================================================
+   7. TERMINAL / CÓDIGO
+   ============================================================ */
+.terminal{
+  background:var(--slate); border-radius:var(--radius); overflow:hidden;
+  border:1px solid var(--slate-rule); flex:1; display:flex; flex-direction:column;
+}
+.terminal__bar{
+  display:flex; align-items:center; gap:8px; padding:10px 16px;
+  background:var(--slate-2); border-bottom:1px solid var(--slate-rule);
+}
+.terminal__bar span{ width:10px; height:10px; border-radius:50%; background:#48525F; }
+.terminal__title{ margin-left:8px; font-family:var(--font-mono); font-size:12px; color:var(--slate-ink); opacity:.7; }
+.terminal pre{
+  margin:0; padding:var(--s3) var(--s4); overflow:auto; flex:1;
+  font-family:var(--font-mono); font-size:var(--t-code); line-height:1.65; color:#DCE8F0;
+}
+.terminal .c-comment{ color:#6B8A9E; }
+.terminal .c-cmd{ color:#7FD6CA; }
+.terminal .c-flag{ color:#E5B567; }
+.terminal .c-out{ color:#9AA7B5; }
+.terminal .c-prompt{ color:#4CBDAF; }
+
+/* ============================================================
+   8. DIAGRAMA A PÁGINA COMPLETA
+   ============================================================ */
+.diagram-full{ flex:1; display:flex; align-items:center; justify-content:center; }
+.diagram-full svg{ max-width:100%; max-height:100%; }
+
+/* ============================================================
+   9. LÍNEA DE TIEMPO
+   ============================================================ */
+.timeline{ position:relative; flex:1; display:flex; align-items:center; }
+.timeline__track{ position:absolute; left:0; right:0; top:50%; height:2px; background:var(--rule); }
+.timeline__items{ display:flex; justify-content:space-between; width:100%; position:relative; }
+.timeline__item{ width:22%; text-align:center; }
+.timeline__item .yr{ font-family:var(--font-mono); font-size:13px; color:var(--accent); font-weight:600; }
+.timeline__item .node{ width:14px; height:14px; border-radius:50%; background:var(--paper); border:3px solid var(--accent); margin:10px auto; }
+.timeline__item .lbl{ font-size:15px; color:var(--ink-2); line-height:1.4; }
+
+/* ============================================================
+   10. CASO DE ESTUDIO
+   ============================================================ */
+.caso{ display:flex; gap:var(--s4); flex:1; }
+.caso__tag{
+  align-self:flex-start; font-family:var(--font-mono); font-size:11px; letter-spacing:.1em;
+  text-transform:uppercase; background:var(--stop); color:#fff; padding:5px 10px; border-radius:2px;
+}
+.caso__body{ flex:1; }
+.caso__quote{
+  font-family:var(--font-display); font-style:italic; font-size:22px; color:var(--ink);
+  border-left:3px solid var(--accent); padding-left:var(--s3); margin:var(--s3) 0;
+}
+
+/* ============================================================
+   11. EJERCICIO / PRÁCTICA
+   ============================================================ */
+.ejercicio{
+  border:1px solid var(--rule); border-radius:var(--radius); background:var(--paper-2);
+  padding:var(--s4); flex:1; display:flex; flex-direction:column; gap:var(--s3);
+}
+.ejercicio__head{ display:flex; justify-content:space-between; align-items:center; }
+.ejercicio__badge{
+  font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+  background:var(--ok-wash); color:var(--ok); padding:5px 10px; border-radius:2px; font-weight:600;
+}
+.ejercicio__meta{ font-family:var(--font-mono); font-size:12px; color:var(--ink-3); }
+.ejercicio ol{ margin:0; padding-left:20px; font-size:17px; color:var(--ink-2); line-height:1.6; }
+.ejercicio ol li{ margin-bottom:8px; }
+.ejercicio__criterios{ background:var(--accent-wash); border-radius:2px; padding:var(--s3); font-size:15px; color:var(--accent-ink); }
+
+/* ============================================================
+   12. AUTOEVALUACIÓN (pregunta / respuesta revelable)
+   ============================================================ */
+.quiz{ display:flex; flex-direction:column; gap:var(--s3); flex:1; justify-content:center; }
+.quiz__item{ border-bottom:1px solid var(--rule-soft); padding-bottom:var(--s3); cursor:pointer; }
+.quiz__q{ font-size:19px; color:var(--ink); font-weight:600; margin-bottom:6px; }
+.quiz__a{ font-size:16px; color:var(--accent-ink); display:none; }
+.quiz__a.shown{ display:block; }
+.quiz__hint{ font-family:var(--font-mono); font-size:12px; color:var(--ink-3); }
+
+/* ============================================================
+   13. CIERRE + BIBLIOGRAFÍA
+   ============================================================ */
+.cierre{ display:grid; grid-template-columns:1fr 1fr; gap:var(--s5); flex:1; }
+.cierre__resumen ul{ margin:0; padding-left:0; list-style:none; }
+.cierre__resumen li{
+  display:flex; gap:var(--s2); font-size:17px; color:var(--ink-2); margin-bottom:var(--s2); line-height:1.4;
+}
+.cierre__resumen li::before{ content:"—"; color:var(--accent); flex-shrink:0; }
+.biblio{ font-size:14px; color:var(--ink-2); line-height:1.6; }
+.biblio__group-title{ font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); margin:var(--s3) 0 var(--s2); }
+.biblio__group-title:first-child{ margin-top:0; }
+.biblio ol{ margin:0; padding-left:18px; }
+.biblio li{ margin-bottom:8px; }
+
+/* ============================================================
+   UI de navegación (no imprime)
+   ============================================================ */
+.ui-progress{
+  position:fixed; left:0; top:0; height:3px; background:var(--accent);
+  z-index:50; transition:width .25s ease;
+}
+.ui-hint{
+  position:fixed; right:18px; bottom:14px; z-index:50;
+  font-family:var(--font-mono); font-size:11px; color:rgba(255,255,255,.45);
+  letter-spacing:.05em;
+}
+.ui-index{
+  position:fixed; inset:0; z-index:60; background:rgba(11,13,16,.92);
+  display:none; align-items:center; justify-content:center;
+}
+.ui-index.open{ display:flex; }
+.ui-index__panel{
+  width:860px; max-width:92vw; max-height:82vh; overflow:auto;
+  background:var(--paper); border-radius:6px; padding:var(--s4);
+}
+.ui-index__panel h3{ font-family:var(--font-display); margin-top:0; }
+.ui-index__row{
+  display:flex; gap:var(--s3); padding:9px 4px; border-bottom:1px solid var(--rule-soft);
+  cursor:pointer; align-items:baseline;
+}
+.ui-index__row:hover{ background:var(--accent-wash); }
+.ui-index__row .n{ font-family:var(--font-mono); color:var(--ink-3); width:28px; }
+.ui-index__row .t{ font-size:15px; color:var(--ink); }
+
+/* ---------- Impresión: una lámina por página ---------- */
+@media print{
+  #stage{ display:block; background:#fff; }
+  .viewport{ box-shadow:none; transform:none !important; width:100%; height:100vh; }
+  .slide{ display:block !important; position:relative; page-break-after:always; height:100vh; }
+  .slide:not(.active){ display:none !important; }
+  .ui-progress,.ui-hint,.ui-index,.deck-nav{ display:none !important; }
+}
+
+</style>
+</head>
+<body class="m-tso">
+<div class="ui-progress" style="width:0%"></div>
+<div id="stage">
+<div class="viewport">
+<!-- 1 · PORTADA -->
+<div class="slide slide--portada active" data-title="Portada — Procesos y Multiprogramación">
+  <div class="portada__num">1.2</div>
+  <div class="slide-inner">
+    <div class="portada__kicker">Taller de Sistemas Operativos · Tema 1</div>
+    <h1 class="portada__title">Procesos y <em>multi-<br>programación</em></h1>
+    <div class="portada__meta">
+      <div><span>Subtema</span>1.2</div>
+      <div><span>Competencia</span>Diferenciar modelos de multiprogramación de propósito general y de servidor</div>
+      <div><span>Duración</span>50 min</div>
+      <div><span>Docente</span>Fernando Michel · femichel@itmexicali.edu.mx</div>
+    </div>
+  </div>
+</div>
+
+<!-- 2 · OBJETIVO -->
+<div class="slide" data-title="Objetivo de la sesión">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.2</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Objetivo de aprendizaje</div>
+    <h1 class="slide-title">Al terminar esta sesión podrás…</h1>
+    <p class="lede">explicar el ciclo de vida de un proceso, distinguir entre procesos pesados e hilos, y diferenciar conmutación de contextos frente a multitarea cooperativa en un SO de servidor.</p>
+    <div class="body-text" style="max-width:760px">
+      <p><strong>Ruta de la sesión:</strong> 1) proceso vs. programa — 2) estados y PCB — 3) modelos de multiprogramación — 4) práctica de laboratorio — 5) autoevaluación.</p>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 3 · ACTIVACIÓN -->
+<div class="slide" data-title="Activación">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.2</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Activación</div>
+    <div class="concepto">
+      <p class="concepto__term">Tu servidor tiene 4 núcleos, pero corre 200 procesos a la vez. <strong>¿Cómo es posible?</strong></p>
+      <p class="concepto__def">El SO no ejecuta 200 procesos simultáneamente en sentido literal: reparte el tiempo de CPU entre ellos a una velocidad que hace parecer que corren en paralelo. Ese reparto tiene reglas — y hoy las vas a entender.</p>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 4 · CONCEPTO: proceso vs programa -->
+<div class="slide" data-title="Concepto: proceso vs. programa">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.2</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Definición</div>
+    <div class="concepto">
+      <p class="concepto__term">Un <strong>programa</strong> es código estático en disco; un <strong>proceso</strong> es ese programa en ejecución, con su propio espacio de memoria, registros y estado.</p>
+      <p class="concepto__def">Cuando ejecutas <code>nginx</code>, el binario en disco es el programa; cada instancia corriendo en RAM, con su PID propio, es un proceso.</p>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 5 · DIAGRAMA FULL: estados del proceso -->
+<div class="slide" data-title="Ciclo de vida de un proceso">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.2</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">1.2 Estados del proceso</div>
+    <h1 class="slide-title">Cinco estados, un ciclo de vida</h1>
+    <div class="diagram-full">
+      <svg viewBox="0 0 820 300" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="a2" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--ink-3)"/></marker></defs>
+        <rect x="20" y="120" width="120" height="55" rx="4" fill="var(--paper-2)" stroke="var(--ink-3)" stroke-width="1.5"/>
+        <text x="80" y="152" text-anchor="middle" font-family="ui-monospace" font-size="12" fill="var(--ink)">Nuevo</text>
+        <rect x="200" y="120" width="120" height="55" rx="4" fill="var(--accent-wash)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="260" y="152" text-anchor="middle" font-family="ui-monospace" font-size="12" fill="var(--accent-ink)">Listo</text>
+        <rect x="380" y="30" width="140" height="55" rx="4" fill="var(--accent)" />
+        <text x="450" y="62" text-anchor="middle" font-family="ui-monospace" font-size="12" fill="#fff" font-weight="600">En ejecución</text>
+        <rect x="380" y="210" width="140" height="55" rx="4" fill="var(--warn-wash)" stroke="var(--warn)" stroke-width="1.5"/>
+        <text x="450" y="242" text-anchor="middle" font-family="ui-monospace" font-size="12" fill="var(--warn)">En espera</text>
+        <rect x="600" y="120" width="140" height="55" rx="4" fill="var(--slate)"/>
+        <text x="670" y="152" text-anchor="middle" font-family="ui-monospace" font-size="12" fill="#DCE8F0">Terminado</text>
+
+        <path d="M140 147 L200 147" stroke="var(--ink-3)" stroke-width="2" marker-end="url(#a2)"/>
+        <path d="M290 122 L400 85" stroke="var(--ink-3)" stroke-width="2" marker-end="url(#a2)"/>
+        <text x="330" y="98" font-family="ui-monospace" font-size="10" fill="var(--ink-3)">planificador</text>
+        <path d="M400 85 L290 122" stroke="var(--ink-3)" stroke-width="2" stroke-dasharray="3,3" marker-end="url(#a2)"/>
+        <text x="330" y="118" font-family="ui-monospace" font-size="10" fill="var(--ink-3)">interrupción / quantum</text>
+        <path d="M420 85 L450 210" stroke="var(--ink-3)" stroke-width="2" marker-end="url(#a2)"/>
+        <text x="430" y="150" font-family="ui-monospace" font-size="10" fill="var(--ink-3)">I/O o evento</text>
+        <path d="M450 210 L290 155" stroke="var(--ink-3)" stroke-width="2" stroke-dasharray="3,3" marker-end="url(#a2)"/>
+        <text x="360" y="200" font-family="ui-monospace" font-size="10" fill="var(--ink-3)">evento atendido</text>
+        <path d="M520 55 L610 130" stroke="var(--ink-3)" stroke-width="2" marker-end="url(#a2)"/>
+        <text x="555" y="90" font-family="ui-monospace" font-size="10" fill="var(--ink-3)">exit()</text>
+      </svg>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 6 · SPLIT: PCB -->
+<div class="slide" data-title="El bloque de control de proceso (PCB)">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.2</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">1.2 Proceso</div>
+    <h1 class="slide-title">Cómo el SO recuerda cada proceso</h1>
+    <div class="split">
+      <div class="body-text">
+        <p>El <strong>PCB</strong> (Process Control Block) es la estructura de datos donde el kernel guarda todo lo necesario para pausar y reanudar un proceso.</p>
+        <p>Incluye: PID, estado actual, contador de programa, registros de CPU, límites de memoria, prioridad y lista de archivos abiertos.</p>
+        <p>Al cambiar de proceso, el SO guarda el PCB del que sale y carga el del que entra — eso es una <strong>conmutación de contexto</strong>.</p>
+      </div>
+      <div class="split__figure">
+        <svg viewBox="0 0 320 300" xmlns="http://www.w3.org/2000/svg">
+          <rect x="20" y="20" width="280" height="260" rx="4" fill="var(--paper-2)" stroke="var(--accent)" stroke-width="2"/>
+          <text x="160" y="46" text-anchor="middle" font-family="ui-monospace" font-size="13" fill="var(--accent-ink)" font-weight="700">PCB — nginx (PID 4821)</text>
+          <g font-family="ui-monospace" font-size="12" fill="var(--ink-2)">
+            <text x="36" y="78">estado: <tspan fill="var(--ink)">en ejecución</tspan></text>
+            <text x="36" y="103">PC: <tspan fill="var(--ink)">0x00423a10</tspan></text>
+            <text x="36" y="128">prioridad: <tspan fill="var(--ink)">20</tspan></text>
+            <text x="36" y="153">registros: <tspan fill="var(--ink)">EAX,EBX,ESP…</tspan></text>
+            <text x="36" y="178">memoria: <tspan fill="var(--ink)">base 0x4000</tspan></text>
+            <text x="36" y="203">archivos abiertos: <tspan fill="var(--ink)">3</tspan></text>
+            <text x="36" y="228">usuario: <tspan fill="var(--ink)">www-data</tspan></text>
+          </g>
+        </svg>
+      </div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 7 · COMPARATIVA: proceso pesado vs hilo -->
+<div class="slide" data-title="Proceso pesado vs. hilo (thread)">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.2</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">1.2 Procesos y multiprogramación</div>
+    <h1 class="slide-title">Proceso pesado vs. hilo</h1>
+    <div class="grid-cols c2">
+      <div class="col-card">
+        <div class="col-card__head"><span class="dot"></span><span class="col-card__title">Proceso pesado</span></div>
+        <ul>
+          <li>Espacio de memoria propio y aislado.</li>
+          <li>Comunicación entre procesos requiere IPC (pipes, sockets, memoria compartida).</li>
+          <li>Cambio de contexto más costoso.</li>
+          <li>Mayor aislamiento: si uno falla, no arrastra a los demás.</li>
+        </ul>
+      </div>
+      <div class="col-card is-accent">
+        <div class="col-card__head"><span class="dot"></span><span class="col-card__title">Hilo (thread)</span></div>
+        <ul>
+          <li>Comparte espacio de memoria con otros hilos del mismo proceso.</li>
+          <li>Comunicación directa mediante variables compartidas.</li>
+          <li>Cambio de contexto más ligero.</li>
+          <li>Menor aislamiento: un hilo corrupto puede afectar a todo el proceso.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 8 · COMPARATIVA: conmutación de contextos vs multitarea cooperativa -->
+<div class="slide" data-title="Conmutación de contextos vs. multitarea cooperativa">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.2</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">1.2 Modelos de multiprogramación</div>
+    <h1 class="slide-title">Dos formas de repartir la CPU</h1>
+    <div class="grid-cols c2">
+      <div class="col-card is-accent">
+        <div class="col-card__head"><span class="dot"></span><span class="col-card__title">Preventiva (por conmutación)</span></div>
+        <ul>
+          <li>El SO interrumpe un proceso al agotarse su quantum de tiempo.</li>
+          <li>Un proceso mal comportado no puede bloquear al resto.</li>
+          <li>Modelo de todos los SO de servidor y escritorio modernos: Linux, Windows Server.</li>
+        </ul>
+      </div>
+      <div class="col-card">
+        <div class="col-card__head"><span class="dot"></span><span class="col-card__title">Cooperativa</span></div>
+        <ul>
+          <li>Cada proceso debe ceder el control voluntariamente.</li>
+          <li>Un proceso mal comportado puede congelar todo el sistema.</li>
+          <li>Modelo histórico (Windows 3.x, Classic Mac OS); hoy sobrevive dentro de runtimes async de una sola aplicación.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 9 · TERMINAL: observar procesos -->
+<div class="slide" data-title="Ejemplo guiado: observar procesos en Linux">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.2</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Ejemplo resuelto</div>
+    <h1 class="slide-title">Inspeccionar procesos y estados reales</h1>
+    <div class="terminal">
+      <div class="terminal__bar"><span></span><span></span><span></span><span class="terminal__title">bash — servidor Linux</span></div>
+      <pre><span class="c-comment"># Ver procesos con su estado (columna STAT)</span>
+<span class="c-prompt">$</span> <span class="c-cmd">ps</span> <span class="c-flag">aux</span> | head -5
+<span class="c-out">USER   PID  %CPU %MEM STAT  COMMAND
+root     1   0.0  0.1  Ss    /sbin/init
+www-data 482  0.3  1.2  S     nginx: worker process
+mysql    901  1.1  4.8  Sl    mysqld</span>
+
+<span class="c-comment"># S=espera interrumpible, R=ejecutable, D=espera no interrumpible, Z=zombi</span>
+
+<span class="c-comment"># Ver los hilos de un proceso concreto</span>
+<span class="c-prompt">$</span> <span class="c-cmd">ps</span> <span class="c-flag">-eLf</span> | grep mysqld | wc -l
+<span class="c-out">24</span>  <span class="c-comment"># mysqld corre 24 hilos dentro de un solo proceso</span>
+
+<span class="c-comment"># Ver conmutaciones de contexto acumuladas</span>
+<span class="c-prompt">$</span> <span class="c-cmd">vmstat</span> 1 3</pre>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 10 · CASO DE ESTUDIO -->
+<div class="slide" data-title="Caso: procesos zombi en un servidor de producción">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.2</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Caso de estudio</div>
+    <h1 class="slide-title">Cuando un proceso no termina de terminar</h1>
+    <div class="caso">
+      <span class="caso__tag">Incidente operativo</span>
+      <div class="caso__body body-text">
+        <p>Un proceso <strong>zombi</strong> ya terminó su ejecución, pero su entrada en la tabla de procesos permanece porque el proceso padre no ha leído su código de salida con <code>wait()</code>.</p>
+        <blockquote class="caso__quote">Un servidor con un demonio mal programado que no cosecha a sus hijos puede acumular miles de procesos zombi hasta agotar la tabla de PID del sistema.</blockquote>
+        <p>No consumen CPU ni memoria significativa, pero <strong>sí agotan identificadores de proceso</strong> — un recurso finito que puede tumbar servicios nuevos si no se atiende.</p>
+      </div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 11 · PRÁCTICA -->
+<div class="slide" data-title="Práctica: procesos básicos, pesados y threads">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.2</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Práctica de laboratorio 1 · Programa TSO</div>
+    <h1 class="slide-title">Reforzar multiprogramación con código</h1>
+    <div class="ejercicio">
+      <div class="ejercicio__head">
+        <span class="ejercicio__badge">Individual</span>
+        <span class="ejercicio__meta">Duración estimada: 45 min · Entregable: código fuente + reporte</span>
+      </div>
+      <ol>
+        <li>Escribe un programa en C o Python que cree un proceso hijo con <code>fork()</code> / <code>multiprocessing</code>.</li>
+        <li>Escribe una segunda versión equivalente usando hilos (<code>pthread</code> / <code>threading</code>).</li>
+        <li>Mide y compara el tiempo de creación de 100 procesos vs. 100 hilos.</li>
+        <li>Observa con <code>ps</code> o el Administrador de Tareas el estado de cada uno mientras corre.</li>
+        <li>Documenta en el reporte por qué el hilo fue más rápido de crear.</li>
+      </ol>
+      <div class="ejercicio__criterios"><strong>Criterios de evaluación:</strong> código funcional en ambas versiones (40%) · medición correcta de tiempos (30%) · explicación técnica de la diferencia (30%).</div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 12 · AUTOEVALUACIÓN -->
+<div class="slide" data-title="Autoevaluación">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.2</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Autoevaluación · clic en cada pregunta para revelar</div>
+    <h1 class="slide-title">Comprueba lo aprendido</h1>
+    <div class="quiz">
+      <div class="quiz__item">
+        <div class="quiz__q">¿Qué información guarda el PCB de un proceso?</div>
+        <div class="quiz__a">PID, estado, contador de programa, registros de CPU, límites de memoria, prioridad y archivos abiertos, entre otros.</div>
+      </div>
+      <div class="quiz__item">
+        <div class="quiz__q">¿Cuál es el riesgo principal de la multitarea cooperativa?</div>
+        <div class="quiz__a">Un proceso mal comportado que no cede el control voluntariamente puede congelar todo el sistema.</div>
+      </div>
+      <div class="quiz__item">
+        <div class="quiz__q">¿Qué es un proceso zombi y por qué es un riesgo en producción?</div>
+        <div class="quiz__a">Un proceso terminado cuyo padre no ha leído su código de salida; acumula entradas en la tabla de procesos y puede agotar los PID disponibles.</div>
+      </div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 13 · CIERRE + BIBLIOGRAFÍA -->
+<div class="slide" data-title="Cierre y bibliografía">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.2</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Cierre</div>
+    <h1 class="slide-title">En cinco ideas</h1>
+    <div class="cierre">
+      <div class="cierre__resumen">
+        <ul>
+          <li>Un proceso es un programa en ejecución con su propio contexto: memoria, registros y estado.</li>
+          <li>El PCB permite al SO pausar y reanudar procesos mediante conmutación de contexto.</li>
+          <li>Los hilos comparten memoria y son más ligeros de crear que los procesos pesados.</li>
+          <li>La multitarea preventiva domina en servidores; la cooperativa depende de la buena conducta del proceso.</li>
+          <li>Procesos zombi y huérfanos son fallas de gestión de ciclo de vida, no errores de hardware.</li>
+        </ul>
+        <p class="body-text" style="margin-top:18px">Siguiente subtema: <strong>1.3 Virtualización.</strong></p>
+      </div>
+      <div class="biblio">
+        <div class="biblio__group-title">Bibliografía del programa</div>
+        <ol>
+          <li>Nemeth, E., Snyder, G., &amp; Hein, T. R. (2002). <em>Linux Administration Handbook</em>. Prentice Hall.</li>
+          <li>Márquez García, F. M. (2004). <em>Unix: Programación avanzada</em>. RAMA.</li>
+        </ol>
+        <div class="biblio__group-title">Fuentes actualizadas</div>
+        <ol start="3">
+          <li>Tanenbaum, A. S., &amp; Bos, H. (2023). <em>Modern Operating Systems</em> (5.ª ed.). Pearson.</li>
+          <li>Kerrisk, M. (2010). <em>The Linux Programming Interface</em>. No Starch Press.</li>
+        </ol>
+        <div class="biblio__group-title">Docente</div>
+        <p style="margin:0">Fernando Michel · femichel@itmexicali.edu.mx</p>
+      </div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+</div>
+</div>
+<div class="ui-hint">&larr; &rarr; avanzar &middot; M &iacute;ndice &middot; D modo oscuro &middot; Ctrl+P imprimir</div>
+<div style="position:fixed;left:18px;bottom:14px;z-index:50;font-family:ui-monospace,monospace;font-size:11px;color:rgba(255,255,255,.45);letter-spacing:.05em;">Fernando Michel &middot; femichel@itmexicali.edu.mx</div>
+<div class="ui-index"><div class="ui-index__panel"><h3>Índice — 1.2 Procesos y Multiprogramación</h3><div class="ui-index__rows"></div></div></div>
+<script>
+/* ============================================================
+   SISTEMA DE PRESENTACIONES — MOTOR
+   Navegación · escalado · progreso · índice · modo oscuro
+   ============================================================ */
+(function(){
+  "use strict";
+
+  var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+  var total = slides.length;
+  var current = 0;
+
+  var stage = document.getElementById("stage");
+  var viewport = document.querySelector(".viewport");
+  var progress = document.querySelector(".ui-progress");
+  var indexPanel = document.querySelector(".ui-index");
+  var indexRows = document.querySelector(".ui-index__rows");
+
+  function buildFoot(){
+    slides.forEach(function(s, i){
+      var foot = s.querySelector(".slide-foot");
+      if(!foot) return;
+      var dotsWrap = foot.querySelector(".dots");
+      if(!dotsWrap) return;
+      dotsWrap.innerHTML = "";
+      for(var d=0; d<total; d++){
+        var dot = document.createElement("span");
+        if(d===i) dot.className = "on";
+        dotsWrap.appendChild(dot);
+      }
+      var counter = foot.querySelector(".counter");
+      if(counter) counter.textContent = (i+1) + " / " + total;
+    });
+  }
+
+  function buildIndex(){
+    if(!indexRows) return;
+    indexRows.innerHTML = "";
+    slides.forEach(function(s, i){
+      var title = s.getAttribute("data-title") || ("Lámina " + (i+1));
+      var row = document.createElement("div");
+      row.className = "ui-index__row";
+      row.innerHTML = '<span class="n">'+String(i+1).padStart(2,"0")+'</span><span class="t">'+title+'</span>';
+      row.addEventListener("click", function(){ goTo(i); closeIndex(); });
+      indexRows.appendChild(row);
+    });
+  }
+
+  function goTo(i){
+    if(i < 0 || i >= total) return;
+    slides[current].classList.remove("active");
+    current = i;
+    slides[current].classList.add("active");
+    if(progress) progress.style.width = (((current+1)/total)*100) + "%";
+    window.scrollTo(0,0);
+  }
+  function next(){ goTo(current+1); }
+  function prev(){ goTo(current-1); }
+
+  function openIndex(){ if(indexPanel){ buildIndex(); indexPanel.classList.add("open"); } }
+  function closeIndex(){ if(indexPanel) indexPanel.classList.remove("open"); }
+  function toggleIndex(){ if(indexPanel && indexPanel.classList.contains("open")) closeIndex(); else openIndex(); }
+
+  function scaleStage(){
+    if(!viewport) return;
+    var sx = window.innerWidth / 1280;
+    var sy = window.innerHeight / 720;
+    var scale = Math.min(sx, sy);
+    viewport.style.transform = "scale(" + scale + ")";
+  }
+
+  function toggleDark(){
+    document.body.classList.toggle("dark");
+    try{ localStorage.setItem("deck-dark", document.body.classList.contains("dark") ? "1" : "0"); }catch(e){}
+  }
+
+  // ---- Quiz revelable ----
+  document.addEventListener("click", function(e){
+    var item = e.target.closest ? e.target.closest(".quiz__item") : null;
+    if(item){
+      var a = item.querySelector(".quiz__a");
+      if(a) a.classList.toggle("shown");
+    }
+  });
+
+  // ---- Teclado ----
+  document.addEventListener("keydown", function(e){
+    if(indexPanel && indexPanel.classList.contains("open")){
+      if(e.key === "Escape") closeIndex();
+      return;
+    }
+    switch(e.key){
+      case "ArrowRight": case "PageDown": case " ":
+        e.preventDefault(); next(); break;
+      case "ArrowLeft": case "PageUp":
+        e.preventDefault(); prev(); break;
+      case "Home": goTo(0); break;
+      case "End": goTo(total-1); break;
+      case "m": case "M": toggleIndex(); break;
+      case "d": case "D": toggleDark(); break;
+      case "p": case "P": document.body.classList.toggle("presenter"); break;
+      case "Escape": closeIndex(); break;
+    }
+  });
+
+  // ---- Clic en zonas laterales para avanzar/retroceder ----
+  if(stage){
+    stage.addEventListener("click", function(e){
+      if(e.target.closest(".ui-index") || e.target.closest("a") || e.target.closest(".quiz__item")) return;
+      var rect = viewport.getBoundingClientRect();
+      var x = e.clientX - rect.left;
+      if(x < rect.width * 0.18) prev();
+      else if(x > rect.width * 0.82) next();
+    });
+  }
+
+  // ---- Swipe táctil ----
+  var touchX = null;
+  window.addEventListener("touchstart", function(e){ touchX = e.touches[0].clientX; });
+  window.addEventListener("touchend", function(e){
+    if(touchX === null) return;
+    var dx = e.changedTouches[0].clientX - touchX;
+    if(Math.abs(dx) > 50){ dx < 0 ? next() : prev(); }
+    touchX = null;
+  });
+
+  window.addEventListener("resize", scaleStage);
+
+  // ---- Init ----
+  document.addEventListener("DOMContentLoaded", function(){
+    try{ if(localStorage.getItem("deck-dark") === "1") document.body.classList.add("dark"); }catch(e){}
+    buildFoot();
+    slides[0] && slides[0].classList.add("active");
+    if(progress) progress.style.width = ((1/total)*100) + "%";
+    scaleStage();
+  });
+
+  // Exponer para navegación desde el índice / botones opcionales
+  window.deck = { goTo: goTo, next: next, prev: prev, toggleIndex: toggleIndex, toggleDark: toggleDark };
+})();
+
+</script>
+</body>
+</html>

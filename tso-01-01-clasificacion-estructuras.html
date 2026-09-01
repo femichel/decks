@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>1.1 Clasificación y Estructuras de los SO — Taller de Sistemas Operativos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ============================================================
+   SISTEMA DE PRESENTACIONES — TOKENS
+   Ing. en Sistemas Computacionales · TecNM
+   ============================================================ */
+
+:root{
+  /* --- Base neutra: papel técnico frío, no crema --- */
+  --ink:        #12171F;   /* texto principal */
+  --ink-2:      #3D4855;   /* texto secundario */
+  --ink-3:      #6B7785;   /* metadatos, captions */
+  --paper:      #F2F5F7;   /* fondo de lámina */
+  --paper-2:    #FFFFFF;   /* tarjetas */
+  --rule:       #D3DAE1;   /* filetes */
+  --rule-soft:  #E4E9ED;
+
+  /* --- Superficie oscura (código, diagramas invertidos) --- */
+  --slate:      #161C26;
+  --slate-2:    #212A37;
+  --slate-rule: #33404F;
+  --slate-ink:  #DCE3EA;
+
+  /* --- Acento por materia (se sobrescribe con .m-tso / .m-seg / .m-min) --- */
+  --accent:     #1F5F8B;
+  --accent-2:   #2E82BB;
+  --accent-ink: #0E3E5E;
+  --accent-wash:#E3EDF4;
+
+  /* --- Señales semánticas --- */
+  --warn:       #A8620B;
+  --warn-wash:  #FBF0DE;
+  --ok:         #1D6E4E;
+  --ok-wash:    #E1F0E8;
+  --stop:       #A32E22;
+
+  /* --- Tipografía: display serif editorial + sans técnica + mono utilitaria.
+         Todas con stack de sistema: el deck funciona sin internet. --- */
+  --font-display: "Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --font-body:    Inter,"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --font-mono:    ui-monospace,"Cascadia Mono","JetBrains Mono","SF Mono",Consolas,"Liberation Mono",monospace;
+
+  /* --- Escala tipográfica (lámina base 1280×720) --- */
+  --t-hero:   68px;
+  --t-h1:     46px;
+  --t-h2:     33px;
+  --t-h3:     24px;
+  --t-body:   21px;
+  --t-small:  17px;
+  --t-micro:  13px;
+  --t-code:   17px;
+
+  /* --- Ritmo --- */
+  --s1: 6px;  --s2: 12px; --s3: 20px; --s4: 32px; --s5: 48px; --s6: 72px;
+  --rail: 74px;          /* ancho del espinazo lateral */
+  --pad-x: 84px;
+  --pad-y: 62px;
+  --radius: 3px;         /* casi recto: registro de documentación técnica */
+}
+
+/* --- Acentos por materia --- */
+.m-tso{ --accent:#1F5F8B; --accent-2:#2E82BB; --accent-ink:#0E3E5E; --accent-wash:#E3EDF4; }
+.m-seg{ --accent:#9B3227; --accent-2:#C4523F; --accent-ink:#6B1F17; --accent-wash:#F6E7E4; }
+.m-min{ --accent:#12655C; --accent-2:#1B8C7F; --accent-ink:#0A423C; --accent-wash:#DFEEEB; }
+
+/* --- Modo oscuro (tecla D) --- */
+.dark{
+  --ink:#E7EDF3; --ink-2:#B3BECB; --ink-3:#7E8B99;
+  --paper:#0F141B; --paper-2:#18202A;
+  --rule:#2C3947; --rule-soft:#232D39;
+  --slate:#080B10; --slate-2:#111925; --slate-rule:#2A3644;
+  --accent-wash:#16283A;
+}
+.dark.m-seg{ --accent:#D9705C; --accent-2:#E58A78; --accent-ink:#F0AFA2; --accent-wash:#33201C; }
+.dark.m-min{ --accent:#31A395; --accent-2:#4CBDAF; --accent-ink:#7FD6CA; --accent-wash:#12302C; }
+.dark.m-tso{ --accent:#5AA3D6; --accent-2:#7DBBE4; --accent-ink:#A8D2EE; --accent-wash:#15283A; }
+
+</style>
+<style>
+/* ============================================================
+   SISTEMA DE PRESENTACIONES — LAYOUTS DE LÁMINA
+   ============================================================ */
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; height:100%; background:#0B0D10; }
+body{
+  font-family:var(--font-body);
+  color:var(--ink);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- Escenario ---------- */
+#stage{
+  position:relative;
+  width:100vw; height:100vh;
+  display:flex; align-items:center; justify-content:center;
+  background:#0B0D10;
+}
+.viewport{
+  position:relative;
+  width:1280px; height:720px;
+  max-width:100vw; max-height:100vh;
+  transform-origin:center center;
+  overflow:hidden;
+  box-shadow:0 40px 120px rgba(0,0,0,.55);
+}
+
+/* ---------- Lámina base ---------- */
+.slide{
+  position:absolute; inset:0;
+  display:none;
+  background:var(--paper);
+  color:var(--ink);
+}
+.slide.active{ display:block; }
+.slide-inner{
+  position:relative; z-index:2;
+  height:100%;
+  padding:var(--pad-y) var(--pad-x) var(--pad-y) calc(var(--pad-x) + var(--rail));
+  display:flex; flex-direction:column;
+}
+
+/* ---------- Espinazo lateral (elemento firma) ----------
+   Franja vertical con el código oficial del subtema (p.ej. "1.3")
+   tomado del temario TecNM: la numeración real de la jerarquía
+   del programa, no un adorno. Corre en todas las láminas. */
+.spine{
+  position:absolute; left:0; top:0; bottom:0; width:var(--rail);
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:space-between;
+  padding:var(--pad-y) 0;
+  border-right:1px solid var(--rule);
+  z-index:3;
+}
+.spine__code{
+  writing-mode:vertical-rl; transform:rotate(180deg);
+  font-family:var(--font-mono); font-size:var(--t-small);
+  letter-spacing:.14em; color:var(--accent); font-weight:600;
+}
+.spine__mat{
+  writing-mode:vertical-rl; transform:rotate(180deg);
+  font-family:var(--font-mono); font-size:11px;
+  letter-spacing:.18em; color:var(--ink-3); text-transform:uppercase;
+}
+.spine__dot{ width:7px; height:7px; border-radius:50%; background:var(--accent); }
+
+/* ---------- Cabecera de contenido ---------- */
+.eyebrow{
+  font-family:var(--font-mono); font-size:var(--t-micro);
+  letter-spacing:.16em; text-transform:uppercase;
+  color:var(--accent); font-weight:600; margin:0 0 var(--s2);
+  display:flex; align-items:center; gap:var(--s2);
+}
+.eyebrow::before{ content:""; width:22px; height:2px; background:var(--accent); display:inline-block; }
+
+h1.slide-title{
+  font-family:var(--font-display); font-weight:600;
+  font-size:var(--t-h1); line-height:1.05; margin:0 0 var(--s3);
+  color:var(--ink); letter-spacing:-.01em;
+}
+h2.slide-sub{
+  font-family:var(--font-body); font-weight:600;
+  font-size:var(--t-h3); color:var(--accent-ink); margin:0 0 var(--s3);
+}
+.lede{
+  font-family:var(--font-display); font-style:italic;
+  font-size:var(--t-h3); color:var(--ink-2); line-height:1.35;
+  max-width:820px; margin:0 0 var(--s4);
+}
+.body-text{ font-size:var(--t-body); line-height:1.55; color:var(--ink-2); }
+.body-text p{ margin:0 0 var(--s3); }
+.body-text strong{ color:var(--ink); font-weight:650; }
+
+/* ---------- Footer ---------- */
+.slide-foot{
+  position:absolute; left:calc(var(--pad-x) + var(--rail)); right:var(--pad-x); bottom:24px;
+  display:flex; justify-content:space-between; align-items:center;
+  font-family:var(--font-mono); font-size:11px; color:var(--ink-3);
+  letter-spacing:.05em; z-index:3;
+}
+.slide-foot .dots{ display:flex; gap:5px; }
+.slide-foot .dots span{ width:5px; height:5px; border-radius:50%; background:var(--rule); }
+.slide-foot .dots span.on{ background:var(--accent); }
+
+/* ============================================================
+   1. PORTADA
+   ============================================================ */
+.slide--portada .slide-inner{ justify-content:center; padding-left:var(--pad-x); }
+.slide--portada .spine{ display:none; }
+.portada__kicker{
+  font-family:var(--font-mono); font-size:var(--t-small); letter-spacing:.18em;
+  text-transform:uppercase; color:var(--accent-2); margin-bottom:var(--s4);
+}
+.portada__title{
+  font-family:var(--font-display); font-weight:600;
+  font-size:var(--t-hero); line-height:.98; letter-spacing:-.015em;
+  color:var(--ink); max-width:980px; margin:0 0 var(--s4);
+}
+.portada__title em{ color:var(--accent); font-style:normal; }
+.portada__meta{
+  display:flex; gap:var(--s5); margin-top:var(--s4);
+  border-top:1px solid var(--rule); padding-top:var(--s3);
+  max-width:820px;
+}
+.portada__meta div{ font-size:var(--t-small); }
+.portada__meta span{ display:block; font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; color:var(--ink-3); text-transform:uppercase; margin-bottom:4px; }
+.portada__num{
+  position:absolute; right:var(--pad-x); top:var(--pad-y);
+  font-family:var(--font-display); font-size:120px; font-weight:600;
+  color:var(--accent-wash); line-height:1; user-select:none;
+}
+
+/* ============================================================
+   2. AGENDA
+   ============================================================ */
+.agenda__list{ list-style:none; margin:0; padding:0; }
+.agenda__list li{
+  display:grid; grid-template-columns:56px 1fr auto; align-items:baseline;
+  gap:var(--s3); padding:var(--s3) 0; border-bottom:1px solid var(--rule-soft);
+}
+.agenda__list li:first-child{ border-top:1px solid var(--rule-soft); }
+.agenda__num{ font-family:var(--font-mono); color:var(--accent); font-size:var(--t-h3); font-weight:600; }
+.agenda__label{ font-family:var(--font-display); font-size:26px; color:var(--ink); }
+.agenda__tag{ font-family:var(--font-mono); font-size:12px; color:var(--ink-3); }
+.agenda__list li.is-current .agenda__label{ color:var(--accent-ink); }
+.agenda__list li.is-current .agenda__num{ color:var(--accent); }
+.agenda__list li.is-current{ background:var(--accent-wash); margin:0 -20px; padding:var(--s3) 20px; border-radius:var(--radius); border-bottom-color:transparent; }
+
+/* ============================================================
+   3. CONCEPTO (idea grande, centrado)
+   ============================================================ */
+.concepto{ display:flex; flex-direction:column; justify-content:center; height:100%; }
+.concepto__term{ font-family:var(--font-display); font-size:52px; color:var(--ink); margin:0 0 var(--s3); max-width:900px; line-height:1.08; }
+.concepto__term strong{ color:var(--accent); font-weight:600; }
+.concepto__def{ font-size:var(--t-h3); color:var(--ink-2); max-width:760px; line-height:1.45; }
+
+/* ============================================================
+   4. SPLIT (texto / diagrama o imagen)
+   ============================================================ */
+.split{ display:grid; grid-template-columns:1fr 1fr; gap:var(--s5); flex:1; align-items:center; }
+.split.rev{ direction:rtl; }
+.split.rev > *{ direction:ltr; }
+.split__figure{
+  height:100%; display:flex; align-items:center; justify-content:center;
+  background:var(--paper-2); border:1px solid var(--rule); border-radius:var(--radius);
+  padding:var(--s3);
+}
+.split__figure svg{ width:100%; height:auto; }
+.split__figure img{ width:100%; height:auto; object-fit:contain; border-radius:2px; }
+.figcap{ font-family:var(--font-mono); font-size:12px; color:var(--ink-3); margin-top:var(--s2); }
+
+/* ============================================================
+   5. COMPARATIVA (2–3 columnas)
+   ============================================================ */
+.grid-cols{ display:grid; gap:var(--s3); flex:1; align-items:stretch; }
+.grid-cols.c2{ grid-template-columns:1fr 1fr; }
+.grid-cols.c3{ grid-template-columns:1fr 1fr 1fr; }
+.col-card{
+  background:var(--paper-2); border:1px solid var(--rule); border-radius:var(--radius);
+  padding:var(--s3); display:flex; flex-direction:column; gap:var(--s2);
+}
+.col-card__head{ display:flex; align-items:center; gap:var(--s2); border-bottom:1px solid var(--rule-soft); padding-bottom:var(--s2); }
+.col-card__head .dot{ width:10px; height:10px; border-radius:50%; background:var(--accent-2); }
+.col-card__title{ font-weight:650; font-size:19px; color:var(--ink); }
+.col-card ul{ margin:0; padding-left:18px; font-size:16px; color:var(--ink-2); line-height:1.5; }
+.col-card ul li{ margin-bottom:6px; }
+.col-card.is-accent{ border-color:var(--accent); background:var(--accent-wash); }
+
+/* ============================================================
+   6. TABLA
+   ============================================================ */
+table.data-table{ width:100%; border-collapse:collapse; font-size:16px; }
+table.data-table th{
+  text-align:left; font-family:var(--font-mono); font-size:11px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--ink-3); font-weight:600;
+  padding:10px 14px; border-bottom:2px solid var(--ink);
+}
+table.data-table td{ padding:12px 14px; border-bottom:1px solid var(--rule-soft); color:var(--ink-2); }
+table.data-table tr:hover td{ background:var(--accent-wash); }
+table.data-table td strong{ color:var(--ink); }
+
+/* ============================================================
+   7. TERMINAL / CÓDIGO
+   ============================================================ */
+.terminal{
+  background:var(--slate); border-radius:var(--radius); overflow:hidden;
+  border:1px solid var(--slate-rule); flex:1; display:flex; flex-direction:column;
+}
+.terminal__bar{
+  display:flex; align-items:center; gap:8px; padding:10px 16px;
+  background:var(--slate-2); border-bottom:1px solid var(--slate-rule);
+}
+.terminal__bar span{ width:10px; height:10px; border-radius:50%; background:#48525F; }
+.terminal__title{ margin-left:8px; font-family:var(--font-mono); font-size:12px; color:var(--slate-ink); opacity:.7; }
+.terminal pre{
+  margin:0; padding:var(--s3) var(--s4); overflow:auto; flex:1;
+  font-family:var(--font-mono); font-size:var(--t-code); line-height:1.65; color:#DCE8F0;
+}
+.terminal .c-comment{ color:#6B8A9E; }
+.terminal .c-cmd{ color:#7FD6CA; }
+.terminal .c-flag{ color:#E5B567; }
+.terminal .c-out{ color:#9AA7B5; }
+.terminal .c-prompt{ color:#4CBDAF; }
+
+/* ============================================================
+   8. DIAGRAMA A PÁGINA COMPLETA
+   ============================================================ */
+.diagram-full{ flex:1; display:flex; align-items:center; justify-content:center; }
+.diagram-full svg{ max-width:100%; max-height:100%; }
+
+/* ============================================================
+   9. LÍNEA DE TIEMPO
+   ============================================================ */
+.timeline{ position:relative; flex:1; display:flex; align-items:center; }
+.timeline__track{ position:absolute; left:0; right:0; top:50%; height:2px; background:var(--rule); }
+.timeline__items{ display:flex; justify-content:space-between; width:100%; position:relative; }
+.timeline__item{ width:22%; text-align:center; }
+.timeline__item .yr{ font-family:var(--font-mono); font-size:13px; color:var(--accent); font-weight:600; }
+.timeline__item .node{ width:14px; height:14px; border-radius:50%; background:var(--paper); border:3px solid var(--accent); margin:10px auto; }
+.timeline__item .lbl{ font-size:15px; color:var(--ink-2); line-height:1.4; }
+
+/* ============================================================
+   10. CASO DE ESTUDIO
+   ============================================================ */
+.caso{ display:flex; gap:var(--s4); flex:1; }
+.caso__tag{
+  align-self:flex-start; font-family:var(--font-mono); font-size:11px; letter-spacing:.1em;
+  text-transform:uppercase; background:var(--stop); color:#fff; padding:5px 10px; border-radius:2px;
+}
+.caso__body{ flex:1; }
+.caso__quote{
+  font-family:var(--font-display); font-style:italic; font-size:22px; color:var(--ink);
+  border-left:3px solid var(--accent); padding-left:var(--s3); margin:var(--s3) 0;
+}
+
+/* ============================================================
+   11. EJERCICIO / PRÁCTICA
+   ============================================================ */
+.ejercicio{
+  border:1px solid var(--rule); border-radius:var(--radius); background:var(--paper-2);
+  padding:var(--s4); flex:1; display:flex; flex-direction:column; gap:var(--s3);
+}
+.ejercicio__head{ display:flex; justify-content:space-between; align-items:center; }
+.ejercicio__badge{
+  font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+  background:var(--ok-wash); color:var(--ok); padding:5px 10px; border-radius:2px; font-weight:600;
+}
+.ejercicio__meta{ font-family:var(--font-mono); font-size:12px; color:var(--ink-3); }
+.ejercicio ol{ margin:0; padding-left:20px; font-size:17px; color:var(--ink-2); line-height:1.6; }
+.ejercicio ol li{ margin-bottom:8px; }
+.ejercicio__criterios{ background:var(--accent-wash); border-radius:2px; padding:var(--s3); font-size:15px; color:var(--accent-ink); }
+
+/* ============================================================
+   12. AUTOEVALUACIÓN (pregunta / respuesta revelable)
+   ============================================================ */
+.quiz{ display:flex; flex-direction:column; gap:var(--s3); flex:1; justify-content:center; }
+.quiz__item{ border-bottom:1px solid var(--rule-soft); padding-bottom:var(--s3); cursor:pointer; }
+.quiz__q{ font-size:19px; color:var(--ink); font-weight:600; margin-bottom:6px; }
+.quiz__a{ font-size:16px; color:var(--accent-ink); display:none; }
+.quiz__a.shown{ display:block; }
+.quiz__hint{ font-family:var(--font-mono); font-size:12px; color:var(--ink-3); }
+
+/* ============================================================
+   13. CIERRE + BIBLIOGRAFÍA
+   ============================================================ */
+.cierre{ display:grid; grid-template-columns:1fr 1fr; gap:var(--s5); flex:1; }
+.cierre__resumen ul{ margin:0; padding-left:0; list-style:none; }
+.cierre__resumen li{
+  display:flex; gap:var(--s2); font-size:17px; color:var(--ink-2); margin-bottom:var(--s2); line-height:1.4;
+}
+.cierre__resumen li::before{ content:"—"; color:var(--accent); flex-shrink:0; }
+.biblio{ font-size:14px; color:var(--ink-2); line-height:1.6; }
+.biblio__group-title{ font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); margin:var(--s3) 0 var(--s2); }
+.biblio__group-title:first-child{ margin-top:0; }
+.biblio ol{ margin:0; padding-left:18px; }
+.biblio li{ margin-bottom:8px; }
+
+/* ============================================================
+   UI de navegación (no imprime)
+   ============================================================ */
+.ui-progress{
+  position:fixed; left:0; top:0; height:3px; background:var(--accent);
+  z-index:50; transition:width .25s ease;
+}
+.ui-hint{
+  position:fixed; right:18px; bottom:14px; z-index:50;
+  font-family:var(--font-mono); font-size:11px; color:rgba(255,255,255,.45);
+  letter-spacing:.05em;
+}
+.ui-index{
+  position:fixed; inset:0; z-index:60; background:rgba(11,13,16,.92);
+  display:none; align-items:center; justify-content:center;
+}
+.ui-index.open{ display:flex; }
+.ui-index__panel{
+  width:860px; max-width:92vw; max-height:82vh; overflow:auto;
+  background:var(--paper); border-radius:6px; padding:var(--s4);
+}
+.ui-index__panel h3{ font-family:var(--font-display); margin-top:0; }
+.ui-index__row{
+  display:flex; gap:var(--s3); padding:9px 4px; border-bottom:1px solid var(--rule-soft);
+  cursor:pointer; align-items:baseline;
+}
+.ui-index__row:hover{ background:var(--accent-wash); }
+.ui-index__row .n{ font-family:var(--font-mono); color:var(--ink-3); width:28px; }
+.ui-index__row .t{ font-size:15px; color:var(--ink); }
+
+/* ---------- Impresión: una lámina por página ---------- */
+@media print{
+  #stage{ display:block; background:#fff; }
+  .viewport{ box-shadow:none; transform:none !important; width:100%; height:100vh; }
+  .slide{ display:block !important; position:relative; page-break-after:always; height:100vh; }
+  .slide:not(.active){ display:none !important; }
+  .ui-progress,.ui-hint,.ui-index,.deck-nav{ display:none !important; }
+}
+
+</style>
+</head>
+<body class="m-tso">
+<div class="ui-progress" style="width:0%"></div>
+<div id="stage">
+<div class="viewport">
+<!-- 1 · PORTADA -->
+<div class="slide slide--portada active" data-title="Portada — Clasificación y estructuras de los SO">
+  <div class="portada__num">1.1</div>
+  <div class="slide-inner">
+    <div class="portada__kicker">Taller de Sistemas Operativos · Tema 1</div>
+    <h1 class="portada__title">Clasificación y <em>estructuras</em><br>de los SO vigentes</h1>
+    <div class="portada__meta">
+      <div><span>Subtema</span>1.1</div>
+      <div><span>Competencia</span>Identificar tipos de SO según la problemática a resolver</div>
+      <div><span>Duración</span>50 min</div>
+      <div><span>Docente</span>Fernando Michel · femichel@itmexicali.edu.mx</div>
+    </div>
+  </div>
+</div>
+
+<!-- 2 · OBJETIVO -->
+<div class="slide" data-title="Objetivo de la sesión">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.1</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Objetivo de aprendizaje</div>
+    <h1 class="slide-title">Al terminar esta sesión podrás…</h1>
+    <p class="lede">clasificar un sistema operativo según su número de usuarios, tareas y procesadores, y reconocer qué estructura interna (monolítica, capas, microkernel) explica su comportamiento.</p>
+    <div class="body-text" style="max-width:760px">
+      <p><strong>Ruta de la sesión:</strong> 1) criterios de clasificación — 2) estructuras genéricas — 3) comparativa de SO vigentes — 4) actividad en equipo — 5) autoevaluación.</p>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 3 · ACTIVACIÓN -->
+<div class="slide" data-title="Activación">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.1</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Activación</div>
+    <div class="concepto">
+      <p class="concepto__term">Tu celular, tu laptop y el servidor de un banco corren sistemas operativos muy distintos. <strong>¿Qué decisión de diseño los separa?</strong></p>
+      <p class="concepto__def">No es solo el tamaño del hardware: es cuántos usuarios atiende a la vez, cuántas tareas ejecuta simultáneamente y cómo estructura internamente el acceso al kernel.</p>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 4 · CONCEPTO -->
+<div class="slide" data-title="Concepto: ¿qué es un sistema operativo?">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.1</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Definición</div>
+    <div class="concepto">
+      <p class="concepto__term">Un <strong>sistema operativo</strong> es el software que administra el hardware y ofrece servicios comunes a los programas: gestión de procesos, memoria, archivos y dispositivos.</p>
+      <p class="concepto__def">Actúa como intermediario entre el usuario/las aplicaciones y el hardware. Antes de administrarlo (temas 2 y 3), necesitas poder clasificarlo y entender su arquitectura interna.</p>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 5 · COMPARATIVA: criterios de clasificación -->
+<div class="slide" data-title="Tres criterios de clasificación">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.1</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">1.1 Clasificación</div>
+    <h1 class="slide-title">Tres ejes para clasificar un SO</h1>
+    <div class="grid-cols c3">
+      <div class="col-card">
+        <div class="col-card__head"><span class="dot"></span><span class="col-card__title">Nº de usuarios</span></div>
+        <ul><li>Monousuario — un usuario a la vez (Windows 11 de escritorio)</li><li>Multiusuario — varios usuarios simultáneos (Linux Server, z/OS)</li></ul>
+      </div>
+      <div class="col-card is-accent">
+        <div class="col-card__head"><span class="dot"></span><span class="col-card__title">Nº de tareas</span></div>
+        <ul><li>Monotarea — un programa a la vez (MS-DOS)</li><li>Multitarea — varios procesos concurrentes (todos los SO modernos)</li></ul>
+      </div>
+      <div class="col-card">
+        <div class="col-card__head"><span class="dot"></span><span class="col-card__title">Nº de procesadores</span></div>
+        <ul><li>Monoprocesador — un solo núcleo lógico atendido</li><li>Multiprocesador — SMP (simétrico) o AMP (asimétrico)</li></ul>
+      </div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 6 · TABLA: clasificación por propósito -->
+<div class="slide" data-title="Clasificación por propósito de uso">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.1</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">1.1 Clasificación por propósito</div>
+    <h1 class="slide-title">El mismo criterio, distinta industria</h1>
+    <table class="data-table">
+      <thead><tr><th>Tipo</th><th>Prioridad de diseño</th><th>Ejemplo vigente</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Tiempo real</strong></td><td>Respuesta garantizada en un plazo estricto</td><td>FreeRTOS, VxWorks</td></tr>
+        <tr><td><strong>Por lotes (batch)</strong></td><td>Máximo rendimiento de trabajos encolados, sin interacción</td><td>Procesamiento nocturno en mainframes</td></tr>
+        <tr><td><strong>Tiempo compartido</strong></td><td>Repartir CPU entre usuarios interactivos</td><td>Linux, Windows Server multiusuario</td></tr>
+        <tr><td><strong>Distribuido</strong></td><td>Coordinar múltiples nodos como un solo sistema lógico</td><td>Kubernetes + Linux, Google Borg</td></tr>
+        <tr><td><strong>Embebido</strong></td><td>Recursos mínimos, propósito único y fijo</td><td>Android Automotive, firmware de router</td></tr>
+      </tbody>
+    </table>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 7 · SPLIT: estructura monolítica -->
+<div class="slide" data-title="Estructura monolítica">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.1</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">1.1 Estructuras genéricas</div>
+    <h1 class="slide-title">Núcleo monolítico</h1>
+    <div class="split">
+      <div class="body-text">
+        <p>Todo el sistema operativo — gestión de procesos, memoria, archivos, controladores — corre en un solo espacio de dirección en modo kernel.</p>
+        <p><strong>Ventaja:</strong> comunicación interna muy rápida entre subsistemas.</p>
+        <p><strong>Riesgo:</strong> un fallo en un controlador puede colapsar todo el sistema.</p>
+        <p><strong>Ejemplo:</strong> el kernel de Linux (con módulos cargables que atenúan la rigidez original).</p>
+      </div>
+      <div class="split__figure">
+        <svg viewBox="0 0 360 260" xmlns="http://www.w3.org/2000/svg">
+          <rect x="20" y="20" width="320" height="220" rx="4" fill="var(--slate)"/>
+          <text x="180" y="50" text-anchor="middle" font-family="ui-monospace" font-size="13" fill="#DCE8F0" font-weight="700">MODO KERNEL</text>
+          <g font-family="ui-monospace" font-size="11" fill="#9AA7B5">
+            <rect x="40" y="65" width="130" height="34" rx="2" fill="#212A37"/><text x="105" y="86" text-anchor="middle" fill="#DCE8F0">Planificador</text>
+            <rect x="190" y="65" width="130" height="34" rx="2" fill="#212A37"/><text x="255" y="86" text-anchor="middle" fill="#DCE8F0">Gestor memoria</text>
+            <rect x="40" y="108" width="130" height="34" rx="2" fill="#212A37"/><text x="105" y="129" text-anchor="middle" fill="#DCE8F0">Sistema archivos</text>
+            <rect x="190" y="108" width="130" height="34" rx="2" fill="#212A37"/><text x="255" y="129" text-anchor="middle" fill="#DCE8F0">Controladores</text>
+            <rect x="40" y="151" width="280" height="34" rx="2" fill="#212A37"/><text x="180" y="172" text-anchor="middle" fill="#DCE8F0">Pila de red</text>
+          </g>
+          <text x="180" y="212" text-anchor="middle" font-family="ui-monospace" font-size="11" fill="#7FD6CA">llamadas de función directas — sin fronteras internas</text>
+        </svg>
+      </div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 8 · SPLIT: microkernel -->
+<div class="slide" data-title="Estructura de microkernel">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.1</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">1.1 Estructuras genéricas</div>
+    <h1 class="slide-title">Microkernel</h1>
+    <div class="split rev">
+      <div class="body-text">
+        <p>El kernel solo ofrece lo mínimo indispensable — comunicación entre procesos y gestión básica de memoria/planificación. El resto (sistema de archivos, drivers) corre como procesos en espacio de usuario.</p>
+        <p><strong>Ventaja:</strong> un controlador que falla no tumba el kernel; más fácil de verificar y mantener.</p>
+        <p><strong>Riesgo:</strong> más cambios de contexto entre kernel y usuario → overhead de rendimiento.</p>
+        <p><strong>Ejemplo:</strong> MINIX 3, QNX (usado en sistemas embebidos críticos).</p>
+      </div>
+      <div class="split__figure">
+        <svg viewBox="0 0 360 260" xmlns="http://www.w3.org/2000/svg">
+          <rect x="20" y="130" width="320" height="50" rx="4" fill="var(--slate)"/>
+          <text x="180" y="160" text-anchor="middle" font-family="ui-monospace" font-size="12" fill="#DCE8F0" font-weight="700">MICROKERNEL — IPC, planificación mínima</text>
+          <rect x="20" y="30" width="90" height="60" rx="3" fill="var(--accent-wash)" stroke="var(--accent)"/><text x="65" y="65" text-anchor="middle" font-family="ui-monospace" font-size="11" fill="var(--accent-ink)">Sist. archivos</text>
+          <rect x="135" y="30" width="90" height="60" rx="3" fill="var(--accent-wash)" stroke="var(--accent)"/><text x="180" y="65" text-anchor="middle" font-family="ui-monospace" font-size="11" fill="var(--accent-ink)">Driver disco</text>
+          <rect x="250" y="30" width="90" height="60" rx="3" fill="var(--accent-wash)" stroke="var(--accent)"/><text x="295" y="65" text-anchor="middle" font-family="ui-monospace" font-size="11" fill="var(--accent-ink)">Pila de red</text>
+          <text x="180" y="115" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="var(--ink-3)">procesos de espacio de usuario ↕ IPC</text>
+        </svg>
+      </div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 9 · TABLA: comparativa monolítico vs microkernel vs híbrido -->
+<div class="slide" data-title="Monolítico vs microkernel vs híbrido">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.1</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">1.1 Estructuras genéricas</div>
+    <h1 class="slide-title">Un tercer camino: el híbrido</h1>
+    <table class="data-table">
+      <thead><tr><th>Estructura</th><th>Dónde corren los drivers</th><th>Ejemplo</th><th>Rendimiento</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Monolítica</strong></td><td>Espacio kernel</td><td>Linux</td><td>Alto</td></tr>
+        <tr><td><strong>Microkernel</strong></td><td>Espacio usuario</td><td>MINIX 3, QNX</td><td>Menor (más IPC)</td></tr>
+        <tr><td><strong>Híbrida</strong></td><td>Kernel con módulos aislables</td><td>Windows NT, macOS (XNU)</td><td>Alto, con aislamiento parcial</td></tr>
+      </tbody>
+    </table>
+    <p class="body-text" style="margin-top:16px">La mayoría de los SO de servidor que instalarás en los temas 2 y 3 son <strong>monolíticos modulares</strong> o <strong>híbridos</strong> — la elección real de la industria rara vez es un extremo puro.</p>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 10 · CASO DE ESTUDIO -->
+<div class="slide" data-title="Caso: por qué QNX se usa en sistemas críticos">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.1</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Caso de estudio</div>
+    <h1 class="slide-title">Cuando la estructura es una decisión de seguridad</h1>
+    <div class="caso">
+      <span class="caso__tag" style="background:var(--ok)">Aplicación industrial</span>
+      <div class="caso__body body-text">
+        <p><strong>QNX</strong>, un microkernel comercial, se usa en sistemas de infoentretenimiento e ingeniería de automóviles y en equipo médico. La razón no es velocidad pura: es que un controlador defectuoso corre aislado en espacio de usuario y puede reiniciarse sin tumbar el sistema completo.</p>
+        <blockquote class="caso__quote">En un sistema donde una falla puede costar vidas, la arquitectura interna del SO es tan crítica como el algoritmo de la aplicación que corre sobre él.</blockquote>
+      </div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 11 · ACTIVIDAD EN EQUIPO -->
+<div class="slide" data-title="Actividad: cuadro comparativo de SO vigentes">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.1</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Actividad de aprendizaje · Programa TSO</div>
+    <h1 class="slide-title">Cuadro comparativo en equipo</h1>
+    <div class="ejercicio">
+      <div class="ejercicio__head">
+        <span class="ejercicio__badge">Equipos de 3–4</span>
+        <span class="ejercicio__meta">Duración: 35 min · Entregable: cuadro digital + exposición breve</span>
+      </div>
+      <ol>
+        <li>Elijan 4 sistemas operativos vigentes de distinta categoría (escritorio, servidor, embebido, móvil).</li>
+        <li>Clasifíquenlos según los tres ejes vistos: usuarios, tareas y procesadores.</li>
+        <li>Identifiquen su estructura genérica (monolítica, microkernel o híbrida) con una fuente que lo respalde.</li>
+        <li>Plasmen los resultados en un cuadro comparativo digital.</li>
+        <li>Preparen 2 minutos de exposición para la plenaria grupal.</li>
+      </ol>
+      <div class="ejercicio__criterios"><strong>Criterios de evaluación:</strong> exactitud de la clasificación (40%) · fuentes citadas correctamente (30%) · claridad de la exposición (30%).</div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 12 · ERRORES FRECUENTES -->
+<div class="slide" data-title="Errores frecuentes al clasificar un SO">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.1</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Desde la práctica profesional</div>
+    <h1 class="slide-title">Confusiones comunes</h1>
+    <div class="grid-cols c2">
+      <div class="col-card">
+        <div class="col-card__head"><span class="dot" style="background:var(--stop)"></span><span class="col-card__title">Error común</span></div>
+        <ul>
+          <li>Confundir "multitarea" con "multiprocesador" — son ejes independientes.</li>
+          <li>Asumir que monolítico significa "menos moderno" — Linux sigue siendo monolítico modular.</li>
+          <li>Elegir un SO por moda en vez de por el propósito real de la carga de trabajo.</li>
+        </ul>
+      </div>
+      <div class="col-card is-accent">
+        <div class="col-card__head"><span class="dot"></span><span class="col-card__title">Buena práctica</span></div>
+        <ul>
+          <li>Documentar la clasificación como parte del diagnóstico de infraestructura, antes de elegir un SO.</li>
+          <li>Justificar la estructura del SO frente a los requisitos de tolerancia a fallos del proyecto.</li>
+          <li>Revisar la vigencia real del SO (soporte, ciclo de vida) antes de recomendarlo a un cliente.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 13 · AUTOEVALUACIÓN -->
+<div class="slide" data-title="Autoevaluación">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.1</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Autoevaluación · clic en cada pregunta para revelar</div>
+    <h1 class="slide-title">Comprueba lo aprendido</h1>
+    <div class="quiz">
+      <div class="quiz__item">
+        <div class="quiz__q">¿Cuáles son los tres ejes básicos para clasificar un sistema operativo?</div>
+        <div class="quiz__a">Número de usuarios (mono/multiusuario), número de tareas (mono/multitarea) y número de procesadores (mono/multiprocesador).</div>
+      </div>
+      <div class="quiz__item">
+        <div class="quiz__q">¿Qué ventaja de seguridad ofrece un microkernel frente a uno monolítico?</div>
+        <div class="quiz__a">Los controladores corren en espacio de usuario, aislados del núcleo, así que un fallo en uno no tumba todo el sistema.</div>
+      </div>
+      <div class="quiz__item">
+        <div class="quiz__q">Menciona un ejemplo de SO con estructura híbrida.</div>
+        <div class="quiz__a">Windows NT o macOS (kernel XNU) — combinan un núcleo monolítico con módulos aislables.</div>
+      </div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+<!-- 14 · CIERRE + BIBLIOGRAFÍA -->
+<div class="slide" data-title="Cierre y bibliografía">
+  <div class="slide-inner">
+    <div class="spine"><div class="spine__code">1.1</div><div class="spine__dot"></div><div class="spine__mat">TSO</div></div>
+    <div class="eyebrow">Cierre</div>
+    <h1 class="slide-title">En cinco ideas</h1>
+    <div class="cierre">
+      <div class="cierre__resumen">
+        <ul>
+          <li>Un SO se clasifica por número de usuarios, tareas y procesadores — ejes independientes entre sí.</li>
+          <li>La clasificación por propósito (tiempo real, batch, distribuido, embebido) responde a la industria que lo usa.</li>
+          <li>La estructura monolítica prioriza rendimiento; el microkernel, aislamiento y confiabilidad.</li>
+          <li>La mayoría de los SO de servidor actuales son híbridos o monolíticos modulares.</li>
+          <li>Clasificar correctamente un SO es el primer paso antes de administrarlo (temas 2 y 3).</li>
+        </ul>
+        <p class="body-text" style="margin-top:18px">Siguiente subtema: <strong>1.2 Procesos y multiprogramación.</strong></p>
+      </div>
+      <div class="biblio">
+        <div class="biblio__group-title">Bibliografía del programa</div>
+        <ol>
+          <li>Nemeth, E., Snyder, G., &amp; Hein, T. R. (2002). <em>Linux Administration Handbook</em>. Prentice Hall.</li>
+          <li>Tanenbaum, A. S. (2003). <em>Redes de computadoras</em>. Pearson/Prentice-Hall.</li>
+        </ol>
+        <div class="biblio__group-title">Fuentes actualizadas</div>
+        <ol start="3">
+          <li>Tanenbaum, A. S., &amp; Bos, H. (2023). <em>Modern Operating Systems</em> (5.ª ed.). Pearson.</li>
+          <li>Kernel.org. (2024). <em>The Linux kernel documentation</em>. kernel.org.</li>
+          <li>BlackBerry QNX. (2024). <em>QNX Neutrino RTOS system architecture overview</em>. Documentación oficial.</li>
+        </ol>
+        <div class="biblio__group-title">Docente</div>
+        <p style="margin:0">Fernando Michel · femichel@itmexicali.edu.mx</p>
+      </div>
+    </div>
+    <div class="slide-foot"><span class="counter"></span><div class="dots"></div></div>
+  </div>
+</div>
+
+</div>
+</div>
+<div class="ui-hint">&larr; &rarr; avanzar &middot; M &iacute;ndice &middot; D modo oscuro &middot; Ctrl+P imprimir</div>
+<div style="position:fixed;left:18px;bottom:14px;z-index:50;font-family:ui-monospace,monospace;font-size:11px;color:rgba(255,255,255,.45);letter-spacing:.05em;">Fernando Michel &middot; femichel@itmexicali.edu.mx</div>
+<div class="ui-index"><div class="ui-index__panel"><h3>Índice — 1.1 Clasificación y estructuras</h3><div class="ui-index__rows"></div></div></div>
+<script>
+/* ============================================================
+   SISTEMA DE PRESENTACIONES — MOTOR
+   Navegación · escalado · progreso · índice · modo oscuro
+   ============================================================ */
+(function(){
+  "use strict";
+
+  var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+  var total = slides.length;
+  var current = 0;
+
+  var stage = document.getElementById("stage");
+  var viewport = document.querySelector(".viewport");
+  var progress = document.querySelector(".ui-progress");
+  var indexPanel = document.querySelector(".ui-index");
+  var indexRows = document.querySelector(".ui-index__rows");
+
+  function buildFoot(){
+    slides.forEach(function(s, i){
+      var foot = s.querySelector(".slide-foot");
+      if(!foot) return;
+      var dotsWrap = foot.querySelector(".dots");
+      if(!dotsWrap) return;
+      dotsWrap.innerHTML = "";
+      for(var d=0; d<total; d++){
+        var dot = document.createElement("span");
+        if(d===i) dot.className = "on";
+        dotsWrap.appendChild(dot);
+      }
+      var counter = foot.querySelector(".counter");
+      if(counter) counter.textContent = (i+1) + " / " + total;
+    });
+  }
+
+  function buildIndex(){
+    if(!indexRows) return;
+    indexRows.innerHTML = "";
+    slides.forEach(function(s, i){
+      var title = s.getAttribute("data-title") || ("Lámina " + (i+1));
+      var row = document.createElement("div");
+      row.className = "ui-index__row";
+      row.innerHTML = '<span class="n">'+String(i+1).padStart(2,"0")+'</span><span class="t">'+title+'</span>';
+      row.addEventListener("click", function(){ goTo(i); closeIndex(); });
+      indexRows.appendChild(row);
+    });
+  }
+
+  function goTo(i){
+    if(i < 0 || i >= total) return;
+    slides[current].classList.remove("active");
+    current = i;
+    slides[current].classList.add("active");
+    if(progress) progress.style.width = (((current+1)/total)*100) + "%";
+    window.scrollTo(0,0);
+  }
+  function next(){ goTo(current+1); }
+  function prev(){ goTo(current-1); }
+
+  function openIndex(){ if(indexPanel){ buildIndex(); indexPanel.classList.add("open"); } }
+  function closeIndex(){ if(indexPanel) indexPanel.classList.remove("open"); }
+  function toggleIndex(){ if(indexPanel && indexPanel.classList.contains("open")) closeIndex(); else openIndex(); }
+
+  function scaleStage(){
+    if(!viewport) return;
+    var sx = window.innerWidth / 1280;
+    var sy = window.innerHeight / 720;
+    var scale = Math.min(sx, sy);
+    viewport.style.transform = "scale(" + scale + ")";
+  }
+
+  function toggleDark(){
+    document.body.classList.toggle("dark");
+    try{ localStorage.setItem("deck-dark", document.body.classList.contains("dark") ? "1" : "0"); }catch(e){}
+  }
+
+  // ---- Quiz revelable ----
+  document.addEventListener("click", function(e){
+    var item = e.target.closest ? e.target.closest(".quiz__item") : null;
+    if(item){
+      var a = item.querySelector(".quiz__a");
+      if(a) a.classList.toggle("shown");
+    }
+  });
+
+  // ---- Teclado ----
+  document.addEventListener("keydown", function(e){
+    if(indexPanel && indexPanel.classList.contains("open")){
+      if(e.key === "Escape") closeIndex();
+      return;
+    }
+    switch(e.key){
+      case "ArrowRight": case "PageDown": case " ":
+        e.preventDefault(); next(); break;
+      case "ArrowLeft": case "PageUp":
+        e.preventDefault(); prev(); break;
+      case "Home": goTo(0); break;
+      case "End": goTo(total-1); break;
+      case "m": case "M": toggleIndex(); break;
+      case "d": case "D": toggleDark(); break;
+      case "p": case "P": document.body.classList.toggle("presenter"); break;
+      case "Escape": closeIndex(); break;
+    }
+  });
+
+  // ---- Clic en zonas laterales para avanzar/retroceder ----
+  if(stage){
+    stage.addEventListener("click", function(e){
+      if(e.target.closest(".ui-index") || e.target.closest("a") || e.target.closest(".quiz__item")) return;
+      var rect = viewport.getBoundingClientRect();
+      var x = e.clientX - rect.left;
+      if(x < rect.width * 0.18) prev();
+      else if(x > rect.width * 0.82) next();
+    });
+  }
+
+  // ---- Swipe táctil ----
+  var touchX = null;
+  window.addEventListener("touchstart", function(e){ touchX = e.touches[0].clientX; });
+  window.addEventListener("touchend", function(e){
+    if(touchX === null) return;
+    var dx = e.changedTouches[0].clientX - touchX;
+    if(Math.abs(dx) > 50){ dx < 0 ? next() : prev(); }
+    touchX = null;
+  });
+
+  window.addEventListener("resize", scaleStage);
+
+  // ---- Init ----
+  document.addEventListener("DOMContentLoaded", function(){
+    try{ if(localStorage.getItem("deck-dark") === "1") document.body.classList.add("dark"); }catch(e){}
+    buildFoot();
+    slides[0] && slides[0].classList.add("active");
+    if(progress) progress.style.width = ((1/total)*100) + "%";
+    scaleStage();
+  });
+
+  // Exponer para navegación desde el índice / botones opcionales
+  window.deck = { goTo: goTo, next: next, prev: prev, toggleIndex: toggleIndex, toggleDark: toggleDark };
+})();
+
+</script>
+</body>
+</html>
